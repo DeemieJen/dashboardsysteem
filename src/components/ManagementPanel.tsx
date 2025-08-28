@@ -22,17 +22,25 @@ import {
   Calendar,
   Settings
 } from 'lucide-react';
-import { mockAssignments, mockGroups, getStatusColor } from '../lib/mockData';
+import { fetchAssignments, fetchGroups, addAssignment, editAssignment, deleteAssignment } from '../lib/api';
+import { getStatusColor } from '../lib/mockData';
 
 export function ManagementPanel() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
+  const [selectedAssignments, setSelectedAssignments] = useState([]);
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
     dueDate: '',
     groups: [] as string[]
   });
+  const [assignments, setAssignments] = useState([]);
+  const [groups, setGroups] = useState([]);
+
+  React.useEffect(() => {
+    fetchAssignments().then(setAssignments);
+    fetchGroups().then(setGroups);
+  }, []);
 
   const handleAssignmentSelect = (assignmentId: string) => {
     setSelectedAssignments(prev => 
@@ -47,20 +55,20 @@ export function ManagementPanel() {
     alert(`${selectedAssignments.length} opdrachten toegewezen aan geselecteerde groepen`);
   };
 
-  const toggleAssignmentStatus = (assignmentId: string) => {
-    const assignment = mockAssignments.find(a => a.id === assignmentId);
+  const toggleAssignmentStatus = async (assignmentId: string) => {
+    const assignment = assignments.find((a: any) => a.id === assignmentId);
     if (!assignment) return;
-    
     const newStatus = assignment.status === 'Gesloten' ? 'Open' : 'Gesloten';
-    alert(`Opdracht "${assignment.title}" is nu ${newStatus.toLowerCase()}`);
+    await editAssignment(assignmentId, { status: newStatus });
+    fetchAssignments().then(setAssignments);
   };
 
-  const createAssignment = () => {
+  const createAssignment = async () => {
     if (!newAssignment.title || !newAssignment.dueDate) return;
-    
-    alert('Nieuwe opdracht aangemaakt!');
+    await addAssignment(newAssignment);
     setIsCreateDialogOpen(false);
     setNewAssignment({ title: '', description: '', dueDate: '', groups: [] });
+    fetchAssignments().then(setAssignments);
   };
 
   const exportData = (type: string) => {
@@ -145,8 +153,31 @@ export function ManagementPanel() {
                       </div>
                       <div>
                         <Label>Toewijzen aan groepen</Label>
+                        <div className="mb-2">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={groups.length > 0 && newAssignment.groups.length === groups.length}
+                              indeterminate={newAssignment.groups.length > 0 && newAssignment.groups.length < groups.length}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setNewAssignment(prev => ({
+                                    ...prev,
+                                    groups: groups.map((g: any) => g.id)
+                                  }));
+                                } else {
+                                  setNewAssignment(prev => ({
+                                    ...prev,
+                                    groups: []
+                                  }));
+                                }
+                              }}
+                            />
+                            <span className="text-sm font-medium">Selecteer alles</span>
+                          </label>
+                        </div>
                         <div className="grid grid-cols-2 gap-2 mt-2">
-                          {mockGroups.map(group => (
+                          {groups.map((group: any) => (
                             <label key={group.id} className="flex items-center space-x-2 cursor-pointer">
                               <input
                                 type="checkbox"
@@ -196,7 +227,7 @@ export function ManagementPanel() {
 
                 {/* Opdrachten lijst */}
                 <div className="space-y-3">
-                  {mockAssignments.map(assignment => (
+                  {assignments.map((assignment: any) => (
                     <div key={assignment.id} className="flex items-center gap-3 p-4 border rounded-lg">
                       <input
                         type="checkbox"
@@ -217,7 +248,15 @@ export function ManagementPanel() {
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {assignment.dueDate.toLocaleDateString('nl-NL')}
+                            {(() => {
+                              let dateObj = assignment.dueDate;
+                              if (typeof dateObj === 'string') {
+                                dateObj = new Date(dateObj);
+                              }
+                              return dateObj instanceof Date && !isNaN(dateObj.getTime())
+                                ? dateObj.toLocaleDateString('nl-NL')
+                                : '';
+                            })()}
                           </span>
                           <span>
                             {assignment.submissionCount}/{assignment.totalGroups} ingeleverd
@@ -226,7 +265,13 @@ export function ManagementPanel() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const newTitle = prompt('Nieuwe titel voor deze opdracht:', assignment.title);
+                          if (newTitle && newTitle !== assignment.title) {
+                            await editAssignment(assignment.id, { title: newTitle });
+                            fetchAssignments().then(setAssignments);
+                          }
+                        }}>
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
@@ -239,7 +284,12 @@ export function ManagementPanel() {
                             <Lock className="w-4 h-4" />
                           }
                         </Button>
-                        <Button size="sm" variant="outline" className="text-destructive">
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={async () => {
+                          if (window.confirm('Weet je zeker dat je deze opdracht wilt verwijderen?')) {
+                            await deleteAssignment(assignment.id);
+                            fetchAssignments().then(setAssignments);
+                          }
+                        }}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -262,7 +312,7 @@ export function ManagementPanel() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockGroups.map(group => (
+                {groups.map((group: any) => (
                   <div key={group.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
                       <h4 className="font-medium">{group.name}</h4>

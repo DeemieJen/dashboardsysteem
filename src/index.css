@@ -1,3 +1,15 @@
+/* Parallax background shapes */
+.parallax-bg {
+  pointer-events: none;
+  z-index: -10;
+}
+.parallax-shape {
+  will-change: left, top;
+  opacity: 0.85;
+  transition-property: left, top;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(.4,0,.2,1);
+}
 /*! tailwindcss v4.1.3 | MIT License | https://tailwindcss.com */
 @layer properties {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {

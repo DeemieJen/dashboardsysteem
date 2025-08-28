@@ -19,24 +19,30 @@ import {
   Info
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { mockGroups, mockStudents, getLevelColor } from '../lib/mockData';
+import { fetchGroups, fetchStudents } from '../lib/api';
+import { getLevelColor } from '../lib/mockData';
 
 interface StudentDashboardProps {
   onLogout: () => void;
 }
 
 export function StudentDashboard({ onLogout }: StudentDashboardProps) {
-  // State voor geselecteerde groep sync
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [students, setStudents] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
 
-  // Voor demo doeleinden nemen we aan dat de student lid is van group1
-  const currentStudentId = '1'; // Emma van Bergen
-  const currentStudent = mockStudents.find(s => s.id === currentStudentId);
-  const currentGroup = mockGroups.find(g => g.members.includes(currentStudentId));
-  
-  // Sorteer groepen voor leaderboard
-  const sortedGroups = [...mockGroups].sort((a, b) => b.normalizedScore - a.normalizedScore);
-  const currentGroupPosition = sortedGroups.findIndex(g => g.id === currentGroup?.id) + 1;
+  React.useEffect(() => {
+    fetchStudents().then(setStudents);
+    fetchGroups().then(setGroups);
+  }, []);
+
+  // For demo, pick the first student as current
+  const currentStudentId = students.length > 0 ? students[0].id : null;
+  const currentStudent = students.find(s => s.id === currentStudentId);
+  const currentGroup = groups.find(g => g.members.includes(currentStudentId));
+
+  const sortedGroups = [...groups].sort((a, b) => b.normalizedScore - a.normalizedScore);
+  const currentGroupPosition = currentGroup ? sortedGroups.findIndex(g => g.id === currentGroup.id) + 1 : null;
 
   // Data voor 8-dagen chart
   const chartData = Array.from({ length: 8 }, (_, index) => {
@@ -93,7 +99,7 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
   };
 
   // Get selected group data
-  const selectedGroup = selectedGroupId ? mockGroups.find(g => g.id === selectedGroupId) : null;
+  const selectedGroup = selectedGroupId ? groups.find((g: any) => g.id === selectedGroupId) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
@@ -137,7 +143,7 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
           <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Jouw Rang</CardTitle>
-              {getPositionIcon(currentGroupPosition)}
+              {currentGroupPosition !== null && currentGroupPosition !== undefined ? getPositionIcon(currentGroupPosition) : null}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">#{currentGroupPosition}</div>

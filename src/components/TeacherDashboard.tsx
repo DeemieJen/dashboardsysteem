@@ -24,73 +24,58 @@ import {
   X
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { 
-  mockStudents, 
-  mockGroups, 
-  mockAssignments, 
-  mockSubmissions, 
-  mockUploads,
-  getStatusColor,
-  getDifficultyColor 
-} from '../lib/mockData';
-import { AssessmentPanel } from './AssessmentPanel';
+import { fetchStudents, fetchGroups, fetchAssignments, fetchSubmissions } from '../lib/api';
+import { getDifficultyColor } from '../lib/mockData';
+import AssessmentPanel from './AssessmentPanel';
 import { ManagementPanel } from './ManagementPanel';
 
 interface TeacherDashboardProps {
   onLogout: () => void;
 }
 
+
 export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  // State voor geselecteerde groep sync
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [students, setStudents] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  // TODO: Add uploads if needed
 
-  // Bereken dashboard statistieken
-  const totalStudents = mockStudents.length;
-  const pendingAssessments = mockSubmissions.filter(s => s.status !== 'Beoordeeld').length;
-  const averageGroupScore = mockGroups.reduce((sum, group) => sum + group.normalizedScore, 0) / mockGroups.length;
-  const todayUploads = mockUploads.filter(u => {
-    const today = new Date();
-    const uploadDate = new Date(u.uploadedAt);
-    return uploadDate.toDateString() === today.toDateString();
-  }).length;
+  React.useEffect(() => {
+    fetchStudents().then(setStudents);
+    fetchGroups().then(setGroups);
+    fetchAssignments().then(setAssignments);
+    fetchSubmissions().then(setSubmissions);
+  }, []);
 
-  // Sorteer groepen voor leaderboard
-  const sortedGroups = [...mockGroups].sort((a, b) => b.normalizedScore - a.normalizedScore);
+  const totalStudents = students.length;
+  const pendingAssessments = submissions.filter((s: any) => s.status !== 'Beoordeeld').length;
+  const averageGroupScore = groups.length > 0 ? groups.reduce((sum, group) => sum + group.normalizedScore, 0) / groups.length : 0;
+  // TODO: todayUploads if uploads are implemented
 
-  // Top en bottom performers
-  const topPerformers = mockStudents
-    .sort((a, b) => b.averageScore - a.averageScore)
-    .slice(0, 5);
-  
-  const needsAttention = mockStudents
-    .sort((a, b) => a.averageScore - b.averageScore)
-    .slice(0, 3);
+  const sortedGroups = [...groups].sort((a, b) => b.normalizedScore - a.normalizedScore);
+  const topPerformers = [...students].sort((a, b) => b.averageScore - a.averageScore).slice(0, 5);
+  const needsAttention = [...students].sort((a, b) => a.averageScore - b.averageScore).slice(0, 3);
+  const almostClosing = assignments.filter((a: any) => a.status === 'Bijna sluiten');
+  const overdue = assignments.filter((a: any) => a.status === 'Te laat');
+  const missing = assignments.filter((a: any) => a.submissionCount < a.totalGroups);
 
-  // Operationele status opdrachten
-  const almostClosing = mockAssignments.filter(a => a.status === 'Bijna sluiten');
-  const overdue = mockAssignments.filter(a => a.status === 'Te laat');
-  const missing = mockAssignments.filter(a => a.submissionCount < a.totalGroups);
-
-  // Chart data voor groepen performance
   const chartData = Array.from({ length: 8 }, (_, index) => {
     const day = index + 1;
     const dayData: any = { day: `Dag ${day}` };
-    
     sortedGroups.slice(0, 5).forEach((group, groupIndex) => {
-      dayData[group.name] = group.dailyScores[index];
+      dayData[group.name] = group.dailyScores ? group.dailyScores[index] : 0;
     });
-    
     return dayData;
   });
 
-  // Handler voor groep selectie
   const handleGroupSelect = (groupId: string) => {
     setSelectedGroupId(selectedGroupId === groupId ? null : groupId);
   };
 
-  // Get selected group data
-  const selectedGroup = selectedGroupId ? mockGroups.find(g => g.id === selectedGroupId) : null;
+  const selectedGroup = selectedGroupId ? groups.find((g: any) => g.id === selectedGroupId) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -146,7 +131,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                 <CardContent>
                   <div className="text-3xl font-bold">{totalStudents}</div>
                   <p className="text-xs opacity-80 mt-1">
-                    Verdeeld over {mockGroups.length} groepen
+                    Verdeeld over {groups.length} groepen
                   </p>
                   <div className="mt-2 flex items-center gap-1">
                     <Zap className="w-3 h-3" />
@@ -197,7 +182,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                   <Upload className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{todayUploads}</div>
+                  <div className="text-3xl font-bold">0</div>
                   <p className="text-xs opacity-80 mt-1">
                     Nieuwe submissions
                   </p>
@@ -423,7 +408,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                           <div className="text-xs text-muted-foreground mb-1">Teamleden:</div>
                           <div className="flex gap-1 flex-wrap">
                             {selectedGroup.members.map(memberId => {
-                              const student = mockStudents.find(s => s.id === memberId);
+                              const student = students.find(s => s.id === memberId);
                               return student ? (
                                 <div key={memberId} className="flex items-center gap-1 text-xs bg-gray-100 rounded px-1 py-0.5">
                                   <span>{student.avatar}</span>
@@ -580,33 +565,8 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {mockUploads.slice(0, 6).map(upload => {
-                      const group = mockGroups.find(g => g.id === upload.groupId);
-                      const assignment = mockAssignments.find(a => a.id === upload.assignmentId);
-                      return (
-                        <div key={upload.id} className="flex items-center gap-3 p-3 border border-purple-100 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
-                          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm">
-                            📁
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{upload.fileName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {group?.emoji} {group?.name} • {assignment?.title}
-                            </p>
-                            <p className="text-xs text-purple-600 font-medium">
-                              door {upload.studentName}
-                            </p>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {upload.uploadedAt.toLocaleTimeString('nl-NL', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    Uploads feed is not yet connected to backend.
                   </div>
                 </CardContent>
               </Card>

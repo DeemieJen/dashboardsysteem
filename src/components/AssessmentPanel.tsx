@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CheckCircle, Clock, AlertCircle, FileText, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -7,26 +8,33 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Progress } from './ui/progress';
-import { 
-  mockGroups, 
-  mockStudents, 
-  mockAssignments, 
-  mockSubmissions,
-  getStatusColor,
-  type Submission 
-} from '../lib/mockData';
-import { CheckCircle, Clock, AlertCircle, FileText, User } from 'lucide-react';
+import { fetchGroups, fetchStudents, fetchAssignments, fetchSubmissions } from '../lib/api';
+import { getStatusColor } from '../lib/mockData';
 
-export function AssessmentPanel() {
+export default function AssessmentPanel() {
+
+
+
   const [selectedAssignment, setSelectedAssignment] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [assessmentData, setAssessmentData] = useState<Record<string, Record<string, number>>>({});
   const [feedback, setFeedback] = useState<string>('');
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
 
-  const assignment = mockAssignments.find(a => a.id === selectedAssignment);
-  const group = mockGroups.find(g => g.id === selectedGroup);
-  const groupMembers = group ? mockStudents.filter(s => group.members.includes(s.id)) : [];
-  const submission = mockSubmissions.find(s => s.assignmentId === selectedAssignment && s.groupId === selectedGroup);
+  React.useEffect(() => {
+    fetchAssignments().then(setAssignments);
+    fetchGroups().then(setGroups);
+    fetchStudents().then(setStudents);
+    fetchSubmissions().then(setSubmissions);
+  }, []);
+
+  const assignment = assignments.find(a => a.id === selectedAssignment);
+  const group = groups.find(g => g.id === selectedGroup);
+  const groupMembers = group ? students.filter(s => group.members.includes(s.id)) : [];
+  const submission = submissions.find(s => s.assignmentId === selectedAssignment && s.groupId === selectedGroup);
 
   const assessmentCategories = [
     { id: 'communication', label: 'Communicatie', description: 'Duidelijkheid en effectiviteit van communicatie' },
@@ -46,12 +54,24 @@ export function AssessmentPanel() {
   };
 
   const getAssessmentProgress = () => {
-    const totalFields = assessmentCategories.length * groupMembers.length;
-    const filledFields = Object.values(assessmentData).reduce((sum, category) => 
-      sum + Object.keys(category).length, 0
-    );
-    return totalFields > 0 ? (filledFields / totalFields) * 100 : 0;
+    const totalFields = (assessmentCategories?.length || 0) * (groupMembers?.length || 0);
+    const filledFields = Object.values(assessmentData).reduce(
+      (sum: number, category) => sum + Object.keys(category as Record<string, number>).length,
+      0
+    ) as number;
+    return totalFields > 0 ? (Number(filledFields) / Number(totalFields)) * 100 : 0;
   };
+
+  // Utility to safely count filled fields in assessmentData
+  function getFilledFieldsCount(obj: Record<string, any>) {
+    let count = 0;
+    for (const key in obj) {
+      if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
+        count++;
+      }
+    }
+    return count;
+  }
 
   const getAssessmentStatus = () => {
     const progress = getAssessmentProgress();
@@ -81,7 +101,7 @@ export function AssessmentPanel() {
                   <SelectValue placeholder="Selecteer een opdracht" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockAssignments.map(assignment => (
+                    {assignments.map((assignment: any) => (
                     <SelectItem key={assignment.id} value={assignment.id}>
                       <div className="flex items-center gap-2">
                         <span>{assignment.title}</span>
@@ -102,23 +122,23 @@ export function AssessmentPanel() {
                   <SelectValue placeholder="Selecteer een groep" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockGroups.map(group => {
-                    const hasSubmission = mockSubmissions.some(s => 
-                      s.assignmentId === selectedAssignment && s.groupId === group.id
-                    );
-                    return (
-                      <SelectItem key={group.id} value={group.id} disabled={!hasSubmission}>
-                        <div className="flex items-center gap-2">
-                          <span>{group.name}</span>
-                          {hasSubmission ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Clock className="w-4 h-4 text-gray-400" />
-                          )}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
+                    {groups.map((group: any) => {
+                      const hasSubmission = submissions.some((s: any) => 
+                        s.assignmentId === selectedAssignment && s.groupId === group.id
+                      );
+                      return (
+                        <SelectItem key={group.id} value={group.id} disabled={!hasSubmission}>
+                          <div className="flex items-center gap-2">
+                            <span>{group.name}</span>
+                            {hasSubmission ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-gray-400" />
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
@@ -251,15 +271,15 @@ export function AssessmentPanel() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockSubmissions.map(submission => {
-              const assignment = mockAssignments.find(a => a.id === submission.assignmentId);
-              const group = mockGroups.find(g => g.id === submission.groupId);
+            {submissions.map((submission: any) => {
+              const assignment = assignments.find((a: any) => a.id === submission.assignmentId);
+              const group = groups.find((g: any) => g.id === submission.groupId);
               return (
                 <div key={submission.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <p className="font-medium">{assignment?.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {group?.name} • Ingeleverd: {submission.submittedAt.toLocaleDateString('nl-NL')}
+                      {group?.name} • Ingeleverd: {new Date(submission.submittedAt).toLocaleDateString('nl-NL')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

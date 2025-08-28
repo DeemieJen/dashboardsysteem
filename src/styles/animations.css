@@ -1,0 +1,34 @@
+@keyframes pulse-fast {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(139,92,246,0.5); }
+  50% { opacity: 0.7; box-shadow: 0 0 16px 8px rgba(139,92,246,0.3); }
+}
+.animate-pulse-fast {
+  animation: pulse-fast 0.7s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+
+@keyframes bounce-fast {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-bounce-fast {
+  animation: bounce-fast 0.7s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+
+@keyframes fadeIn-fast {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in-fast {
+  animation: fadeIn-fast 0.3s cubic-bezier(0.4,0,0.6,1);
+}
+
+.animate-glow-fast {
+  box-shadow: 0 0 32px 8px rgba(139,92,246,0.5) !important;
+}
+
+@keyframes spin-slow {
+  100% { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}

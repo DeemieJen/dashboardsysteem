@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { StudentProfileSettings } from './StudentProfileSettings';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -19,22 +20,21 @@ import {
   Info
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { fetchGroups, fetchStudents } from '../lib/api';
-import { getLevelColor } from '../lib/mockData';
+import {
+  mockGroups,
+  mockStudents,
+  getLevelColor
+} from '../lib/mockData';
 
 interface StudentDashboardProps {
   onLogout: () => void;
 }
 
 export function StudentDashboard({ onLogout }: StudentDashboardProps) {
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [students, setStudents] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-
-  React.useEffect(() => {
-    fetchStudents().then(setStudents);
-    fetchGroups().then(setGroups);
-  }, []);
+  const [students, setStudents] = useState<any[]>(mockStudents);
+  const [groups, setGroups] = useState<any[]>(mockGroups);
 
   // For demo, pick the first student as current
   const currentStudentId = students.length > 0 ? students[0].id : null;
@@ -101,15 +101,37 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
   // Get selected group data
   const selectedGroup = selectedGroupId ? groups.find((g: any) => g.id === selectedGroupId) : null;
 
+  const handleAvatarChange = (avatarUrl: string) => {
+    if (currentStudent) {
+      setStudents(students => students.map(s => s.id === currentStudent.id ? { ...s, avatar: avatarUrl } : s));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
+      {/* Settings/Profile Modal */}
+      {showSettings && currentStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 animate-fade-in">
+          <div className="relative">
+            <button className="absolute top-2 right-2 z-10 bg-white bg-opacity-80 rounded-full p-2 shadow hover:bg-opacity-100 transition" onClick={() => setShowSettings(false)}>
+              <span className="text-xl font-bold">×</span>
+            </button>
+            <StudentProfileSettings student={currentStudent} onAvatarChange={handleAvatarChange} />
+          </div>
+        </div>
+      )}
       {/* Animated Header */}
       <div className="border-b bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white shadow-xl">
         <div className="container mx-auto px-4 py-6 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm">
+            <button
+              className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm hover:ring-4 hover:ring-purple-300 transition relative group"
+              onClick={() => setShowSettings(true)}
+              title="Wijzig je avatar"
+            >
               {currentStudent?.avatar}
-            </div>
+              <span className="absolute bottom-0 right-0 bg-purple-500 text-white text-xs rounded-full px-2 py-0.5 opacity-0 group-hover:opacity-100 transition">Instellingen</span>
+            </button>
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">
                 Welkom terug, {currentStudent?.name}! 🎉

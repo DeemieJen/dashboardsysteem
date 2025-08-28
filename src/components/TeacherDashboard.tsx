@@ -24,10 +24,16 @@ import {
   X
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { fetchStudents, fetchGroups, fetchAssignments, fetchSubmissions } from '../lib/api';
-import { getDifficultyColor } from '../lib/mockData';
+import {
+  mockStudents,
+  mockGroups,
+  mockAssignments,
+  mockSubmissions,
+  getDifficultyColor
+} from '../lib/mockData';
 import AssessmentPanel from './AssessmentPanel';
-import { ManagementPanel } from './ManagementPanel';
+import ManagementPanel from './ManagementPanel2';
+console.log('ManagementPanel import:', ManagementPanel);
 
 interface TeacherDashboardProps {
   onLogout: () => void;
@@ -37,18 +43,11 @@ interface TeacherDashboardProps {
 export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [students, setStudents] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>(mockStudents);
+  const [groups, setGroups] = useState<any[]>(mockGroups);
+  const [assignments, setAssignments] = useState<any[]>(mockAssignments);
+  const [submissions, setSubmissions] = useState<any[]>(mockSubmissions);
   // TODO: Add uploads if needed
-
-  React.useEffect(() => {
-    fetchStudents().then(setStudents);
-    fetchGroups().then(setGroups);
-    fetchAssignments().then(setAssignments);
-    fetchSubmissions().then(setSubmissions);
-  }, []);
 
   const totalStudents = students.length;
   const pendingAssessments = submissions.filter((s: any) => s.status !== 'Beoordeeld').length;
@@ -62,10 +61,20 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
   const overdue = assignments.filter((a: any) => a.status === 'Te laat');
   const missing = assignments.filter((a: any) => a.submissionCount < a.totalGroups);
 
+  // Always include selected group in chart, even if not in top 5
+  const chartGroups = React.useMemo(() => {
+    const topGroups = sortedGroups.slice(0, 5);
+    if (selectedGroupId && !topGroups.some(g => g.id === selectedGroupId)) {
+      const sel = groups.find(g => g.id === selectedGroupId);
+      if (sel) return [...topGroups, sel];
+    }
+    return topGroups;
+  }, [sortedGroups, selectedGroupId, groups]);
+
   const chartData = Array.from({ length: 8 }, (_, index) => {
     const day = index + 1;
     const dayData: any = { day: `Dag ${day}` };
-    sortedGroups.slice(0, 5).forEach((group, groupIndex) => {
+    chartGroups.forEach((group) => {
       dayData[group.name] = group.dailyScores ? group.dailyScores[index] : 0;
     });
     return dayData;
@@ -340,7 +349,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
                             selectedGroup?.name === name ? `${selectedGroup.emoji} ${name} (Geselecteerd)` : name
                           ]}
                         />
-                        {sortedGroups.slice(0, 5).map((group, index) => {
+                        {chartGroups.map((group, index) => {
                           const isSelected = group.id === selectedGroupId;
                           return (
                             <Line 
@@ -578,6 +587,7 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
           </TabsContent>
 
           <TabsContent value="management">
+            {console.log('Rendering ManagementPanel:', ManagementPanel)}
             <ManagementPanel />
           </TabsContent>
         </Tabs>
